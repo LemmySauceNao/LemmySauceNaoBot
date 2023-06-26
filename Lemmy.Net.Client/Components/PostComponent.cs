@@ -50,7 +50,7 @@ public class PostComponent
 
     public async Task<PostsEnvelope> GetPostsForCommunity(string name, int limit = 50, int page = 1, string sort = "New")
     {
-        var res = await _http.GetAsync($"/post/list?community_name={name}&limit={limit}&page={page}&sort={sort}");
+        var res = await _http.GetAsync($"/post/list?community_name={name}&limit={limit}&page={page}&sort={sort}&auth={CustomAuthenticationHandler.auth}");
         return await res.Content.ReadFromJsonAsync<PostsEnvelope>();
     }
 

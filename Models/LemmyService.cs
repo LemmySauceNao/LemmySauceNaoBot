@@ -112,7 +112,7 @@ namespace LemmySauceNao.Models
             string strExeFilePath = System.Reflection.Assembly.GetExecutingAssembly().Location;
             string strWorkPath = System.IO.Path.GetDirectoryName(strExeFilePath);
             string data = File.Exists($"{strWorkPath}/{File.ReadAllText($"{strWorkPath}/LemmyUsername.txt")}.txt") ? File.ReadAllText($"{strWorkPath}/{File.ReadAllText($"{strWorkPath}/LemmyUsername.txt")}.txt") : "";
-            var task = _lemmyClient.PrivateMessage.List(100, 1, false, data);
+            var task = _lemmyClient.PrivateMessage.List(50, 1, false, data);
             task.Wait();
             var result = task.Result;
             List<PrivateMessage> messages = new List<PrivateMessage>();

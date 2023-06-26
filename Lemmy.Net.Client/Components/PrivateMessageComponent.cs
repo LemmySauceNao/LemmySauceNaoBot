@@ -34,7 +34,7 @@ public class PrivateMessageComponent
     public async Task<dynamic> List(int limit = 100, int page = 1, bool unreadOnly = false, string auth = "")
     {
         string unreadonly = unreadOnly ? "true" : "false";
-        string res = await _http.GetStringAsync($"/private_message/list?&auth={auth}");
+        string res = await _http.GetStringAsync($"/private_message/list?&auth={auth}&limit={limit}");
         return (dynamic)JsonConvert.DeserializeObject(res);
     }
 

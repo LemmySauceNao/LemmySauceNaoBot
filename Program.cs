@@ -73,6 +73,17 @@ internal class SauceNao
         }
         catch (Exception ex)
         {
+            if (ex.ToString().ToLower().Contains("deleted"))
+            {
+                alreadyTaggedIds.Add(post.Id.ToString());
+                File.WriteAllLines(Path.Combine(strWorkPath, "AlreadyTaggedIds"), alreadyTaggedIds);
+            }
+            else if (ex.Message.Contains("Length cannot be less than zero"))
+            {
+                //cant find any sort of image. just move on
+                alreadyTaggedIds.Add(post.Id.ToString());
+                File.WriteAllLines(Path.Combine(strWorkPath, "AlreadyTaggedIds"), alreadyTaggedIds);
+            }
         }
     }
 
@@ -147,7 +158,7 @@ internal class SauceNao
             var posts = LemmySauceNao.Models.LemmyService.GetAllPostsForCommunityName(community.Name);
             foreach (var post in posts)
             {
-                if (!alreadyTaggedIds.Contains(post.Id.ToString()))
+                if (!alreadyTaggedIds.Contains(post.Id.ToString()) && !post.Deleted)
                 {
                     Console.WriteLine($"Checking a post in {community.Name} on post {post.Name}");
                     IdentifyAndTagPost(post);
@@ -189,6 +200,10 @@ internal class SauceNao
         else if (sauce.Message.Contains("Specified file no longer exists on the remote server"))
         {
             message = "Hey i got a 404 trying to access that image, are you sure it still exists?";
+        }
+        else if (sauce.Message.ToLower().Contains("dimensions too small"))
+        {
+            message = "Sauce Nao does not support images with dimensions this small, sorry?";
         }
         else if (sauce.Message != "")
         {
@@ -288,7 +303,7 @@ internal class SauceNao
                 var posts = LemmySauceNao.Models.LemmyService.GetNewest50PostsByCommunityName(community.Name);
                 foreach (var post in posts)
                 {
-                    if (!alreadyTaggedIds.Contains(post.Id.ToString()))
+                    if (!alreadyTaggedIds.Contains(post.Id.ToString()) && !post.Deleted)
                     {
                         Console.WriteLine($"Checking a post in {community.Name} on post {post.Name}");
                         IdentifyAndTagPost(post);
