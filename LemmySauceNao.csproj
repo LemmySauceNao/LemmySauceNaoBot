@@ -13,4 +13,10 @@
     <PackageReference Include="SauceNET" Version="1.1.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Reference Include="Slko.TraceMoeNET">
+      <HintPath>..\..\TraceMoeNET\Core\Slko.TraceMoeNET\bin\Debug\netstandard2.1\Slko.TraceMoeNET.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
 </Project>

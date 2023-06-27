@@ -9,7 +9,7 @@ namespace Lemmy.Net.Client.Models
         public string Url { get; set; }
         public string Body { get; set; }
         public int CreatorId { get; set; }
-        public int CommunityId { get; set; }
+        public int community_id { get; set; }
         public bool Removed { get; set; }
         public bool Locked { get; set; }
         public DateTime Published { get; set; }

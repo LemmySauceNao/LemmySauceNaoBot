@@ -3,6 +3,7 @@
 // a forked version for right now
 using Lemmy.Net.Client.Models;
 using SauceNET;
+using Slko.TraceMoeNET;
 
 internal class SauceNao
 {
@@ -10,11 +11,14 @@ internal class SauceNao
     private string SauceNaoAPIKey = "";
     private int sauceNaoBotId = 182352;
     private string strWorkPath;
+    private string TraceMoeApiKey = "";
 
     public static void Main(String[] args)
     {
         SauceNao s = new SauceNao();
         s.Init();
+        //s.CombineHashFiles(Path.Combine(s.strWorkPath, "AlreadyTaggedIds2"), Path.Combine(s.strWorkPath, "AlreadyTaggedIds"));
+        //s.ResyncTaggedFile();
         if (args.Length == 0)
             args = new string[1] { "AllTime" };
         if (args[0] == "Upkeep")
@@ -22,10 +26,24 @@ internal class SauceNao
             s.Upkeep();
         }
         else if (args[0] == "AllTime")
-        {
+        {// over time this mode should probably be removed as im not sure it serves much point to label past posts.
             s.RunForAllTime();
             s.Upkeep();
         }
+    }
+
+    private void CombineHashFiles(string file1, string file2)
+    {
+        alreadyTaggedIds = new HashSet<string>(File.ReadAllLines(file1));
+        var alreadyTaggedIds2 = new HashSet<string>(File.ReadAllLines(file2));
+        foreach (var item in alreadyTaggedIds2)
+        {
+            if (!alreadyTaggedIds.Contains(item))
+            {
+                alreadyTaggedIds.Add(item);
+            }
+        }
+        File.WriteAllLines(Path.Combine(strWorkPath, "AlreadyTaggedIds"), alreadyTaggedIds);
     }
 
     private void IdentifyAndTagPost(Post post)
@@ -46,16 +64,16 @@ internal class SauceNao
                     image = hopefullLink;
                 }
             }
-            string message = "";
+            string sauceNaoMessage = "";
             try
             {
-                message = SauceNaoImage(image);
-                if (message.Contains("hard time finding your image") && image != null)
+                sauceNaoMessage = SauceNaoImage(image);
+                if (sauceNaoMessage.Contains("hard time finding your image") && image != null)
                 {
                     Console.WriteLine("Unsupported File Type like a video:" + image);
                     alreadyTaggedIds.Add(post.Id.ToString());
                     File.WriteAllLines(Path.Combine(strWorkPath, "AlreadyTaggedIds"), alreadyTaggedIds);
-                    message = "";
+                    sauceNaoMessage = "";
                 }
             }
             catch (Exception ex)
@@ -64,9 +82,12 @@ internal class SauceNao
                 alreadyTaggedIds.Add(post.Id.ToString());
                 File.WriteAllLines(Path.Combine(strWorkPath, "AlreadyTaggedIds"), alreadyTaggedIds);
             }
-            if (message != "")
+            string overallMessage = "";
+            if (sauceNaoMessage != "")
             {
-                LemmySauceNao.Models.LemmyService.CommentOnPost(post.Id, message);
+                string traceMoeImage = TraceMoeImage(image);
+                overallMessage = sauceNaoMessage + "\r\n\r\n" + traceMoeImage;
+                LemmySauceNao.Models.LemmyService.CommentOnPost(post.Id, overallMessage);
                 alreadyTaggedIds.Add(post.Id.ToString());
                 File.WriteAllLines(Path.Combine(strWorkPath, "AlreadyTaggedIds"), alreadyTaggedIds);
             }
@@ -92,6 +113,7 @@ internal class SauceNao
         string strExeFilePath = System.Reflection.Assembly.GetExecutingAssembly().Location;
         strWorkPath = System.IO.Path.GetDirectoryName(strExeFilePath);
         SauceNaoAPIKey = File.ReadAllText(Path.Combine(strWorkPath, "SauceNaoAPIKey.txt"));
+        TraceMoeApiKey = File.ReadAllText(Path.Combine(strWorkPath, "TraceMoeApiKey.txt"));
         LemmySauceNao.Models.LemmyService.Init();
         //ResyncTaggedFile();
     }
@@ -156,13 +178,19 @@ internal class SauceNao
         foreach (var community in communities)
         {
             var posts = LemmySauceNao.Models.LemmyService.GetAllPostsForCommunityName(community.Name);
-            foreach (var post in posts)
+            if (posts[0].community_id != 6)
             {
-                if (!alreadyTaggedIds.Contains(post.Id.ToString()) && !post.Deleted)
+                foreach (var post in posts)
                 {
-                    Console.WriteLine($"Checking a post in {community.Name} on post {post.Name}");
-                    IdentifyAndTagPost(post);
+                    if (!alreadyTaggedIds.Contains(post.Id.ToString()) && !post.Deleted)
+                    {
+                        Console.WriteLine($"Checking a post in {community.Name} on post {post.Name}");
+                        IdentifyAndTagPost(post);
+                    }
                 }
+            }
+            else
+            {
             }
         }
     }
@@ -203,7 +231,7 @@ internal class SauceNao
         }
         else if (sauce.Message.ToLower().Contains("dimensions too small"))
         {
-            message = "Sauce Nao does not support images with dimensions this small, sorry?";
+            message = "Sauce Nao does not support images with dimensions this small, sorry.";
         }
         else if (sauce.Message != "")
         {
@@ -255,6 +283,42 @@ internal class SauceNao
         return message;
     }
 
+    private string TraceMoeImage(string? image)
+    {
+        string message = "";
+        try
+        {
+            using TraceMoeClient moeApi = new TraceMoeClient(TraceMoeApiKey);
+            var task = moeApi.SearchByURLAsync(image);
+            task.Wait();
+            var result = task.Result;
+            if (result.error == "")
+            {
+                if (result.result.Count > 0)
+                {
+                    message += $"Found On Trace.Moe with a similarity of {Math.Round(result.result[0].similarity, 2)}: ";
+                    message += $"- Title English:{result.result[0].anilist.title.english} \r\n";
+                    message += $"- Title Romaji:{result.result[0].anilist.title.romaji} \r\n";
+                    message += $"- Title Native:{result.result[0].anilist.title.english} \r\n";
+                    message += $"- anilist Id:{result.result[0].anilist.id} \r\n";
+                }
+                else
+                {
+                    message = "Unable to find this on Trace.moe, sorry about that";
+                }
+            }
+            else
+            {
+                message = "Ran into an unhandled exception when running this through Trace.Moe. sorry";
+            }
+        }
+        catch (Exception ex)
+        {
+            message = "Ran into an unhandled exception when running this through Trace.Moe. sorry";
+        }
+        return message;
+    }
+
     private void Upkeep()
     {
         Console.WriteLine("Moving Into Upkeep Mode");
@@ -301,15 +365,21 @@ internal class SauceNao
             foreach (var community in communities)
             {
                 var posts = LemmySauceNao.Models.LemmyService.GetNewest50PostsByCommunityName(community.Name);
-                foreach (var post in posts)
+                if (posts[0].community_id != 6)
                 {
-                    if (!alreadyTaggedIds.Contains(post.Id.ToString()) && !post.Deleted)
+                    foreach (Post post in posts)
                     {
-                        Console.WriteLine($"Checking a post in {community.Name} on post {post.Name}");
-                        IdentifyAndTagPost(post);
+                        if (!alreadyTaggedIds.Contains(post.Id.ToString()) && !post.Deleted)
+                        {
+                            Console.WriteLine($"Checking a post in {community.Name} on post {post.Name}");
+                            IdentifyAndTagPost(post);
+                        }
                     }
+                    Thread.Sleep(10000);
                 }
-                Thread.Sleep(10000);
+                else
+                {
+                }
             }
         }
     }
